@@ -40,7 +40,7 @@ spec:
         runAsUser: 10001
       containers:
         - name: app
-          image: REPLACE_WITH_YOUR_ECR_URI:demo-v1
+          image: 783764579167.dkr.ecr.ap-south-1.amazonaws.com/checkride/siva-p:bab00b41ed9c9719081213a5165c9ceaacb635e9
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
