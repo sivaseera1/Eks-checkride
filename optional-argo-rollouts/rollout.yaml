@@ -1,0 +1,78 @@
+# OPTIONAL: Argo Rollouts version.
+# Preconditions:
+# 1) Argo Rollouts CRD/controller is already installed and approved.
+# 2) An approved traffic-routing mechanism is configured.
+# 3) Do not enable ALB trafficRouting until your senior approves an Ingress/ALB.
+# 4) The image must be pushed to your ECR repository.
+#
+# This starter Rollout intentionally has no ALB trafficRouting block.
+# It demonstrates a staged rollout, but traffic splitting requires a supported
+# routing integration to be configured; without it, traffic weights are not
+# meaningful at the ingress layer.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: checkride-demo
+  namespace: siva-p
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 120
+  progressDeadlineAbort: true
+  selector:
+    matchLabels:
+      app: checkride-demo
+  strategy:
+    canary:
+      maxSurge: 1
+      maxUnavailable: 0
+      steps:
+        - setWeight: 10
+        - pause: { duration: 30s }
+        - setWeight: 30
+        - pause: { duration: 30s }
+        - setWeight: 60
+        - pause: { duration: 30s }
+  template:
+    metadata:
+      labels:
+        app: checkride-demo
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: app
+          image: REPLACE_WITH_YOUR_ECR_URI:demo-v1
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - { name: APP_VERSION, value: "v1" }
+            - { name: FAIL_RATE, value: "0" }
+            - { name: READY_FAIL, value: "false" }
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 256Mi }
+          startupProbe:
+            httpGet: { path: /startup, port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /ready, port: http }
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 10"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true

@@ -1,0 +1,31 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: checkride-demo
+  namespace: siva-p
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: checkride-demo
+---
+# Apply only after checking namespace quota and cluster capacity.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: checkride-demo
+  namespace: siva-p
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkride-demo
+  minReplicas: 3
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
