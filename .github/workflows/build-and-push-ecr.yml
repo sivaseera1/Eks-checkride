@@ -1,4 +1,4 @@
-name: Build and Push to Amazon ECR
+name: CI-CD - Retail Order API to EKS
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "app/**"
+      - "k8s/**"
       - ".github/workflows/**"
   workflow_dispatch:
 
@@ -16,10 +17,14 @@ permissions:
 env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: checkride/siva-p
+  EKS_CLUSTER: eks-checkride-shared
+  EKS_NAMESPACE: siva-p
+  EKS_DEPLOYMENT: retail-order-api
+  CONTAINER_NAME: app
 
 jobs:
-  build-and-push:
-    name: Build, Test and Push Docker Image
+  build-and-deploy:
+    name: Build, Push and Deploy to EKS
     runs-on: ubuntu-latest
 
     steps:
@@ -48,3 +53,30 @@ jobs:
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Configure kubectl for Amazon EKS
+        run: |
+          aws eks update-kubeconfig \
+            --region $AWS_REGION \
+            --name $EKS_CLUSTER
+
+      - name: Deploy image to EKS
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          kubectl -n $EKS_NAMESPACE set image \
+            deployment/$EKS_DEPLOYMENT \
+            $CONTAINER_NAME=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Verify deployment rollout
+        run: |
+          kubectl -n $EKS_NAMESPACE rollout status \
+            deployment/$EKS_DEPLOYMENT \
+            --timeout=180s
+
+      - name: Verify deployed application
+        run: |
+          kubectl -n $EKS_NAMESPACE get deployment $EKS_DEPLOYMENT
+          kubectl -n $EKS_NAMESPACE get pods -l app=retail-order-api
+
