@@ -35,7 +35,6 @@ READY_FAIL = os.getenv("READY_FAIL", "false").lower() == "true"
 STARTUP_DELAY = float(os.getenv("STARTUP_DELAY", "5"))
 SHUTDOWN_DELAY = float(os.getenv("SHUTDOWN_DELAY", "5"))
 POD = os.getenv("POD_NAME", "local")
-NODE = os.getenv("NODE_NAME", "unknown")
 
 
 def detect_zone():
@@ -125,12 +124,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(status, json.dumps({
                     "orderId": order_id,
                     "status": random.choice(["PLACED", "PACKED", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"]),
-                    "version": VERSION, "pod": POD, "node": NODE, "zone": ZONE,
+                    "version": VERSION, "pod": POD, "zone": ZONE,
                 }))
             record("api", status, time.time() - t0)
             return
         elif p == "/":
-            self._send(200, json.dumps({"service": "order-tracking", "version": VERSION, "pod": POD, "node": NODE, "zone": ZONE}))
+            self._send(200, json.dumps({"service": "order-tracking", "version": VERSION, "pod": POD, "zone": ZONE}))
         else:
             self._send(404, json.dumps({"error": "not found"}))
 
@@ -173,7 +172,7 @@ def main():
         threading.Thread(target=stop, daemon=True).start()
 
     signal.signal(signal.SIGTERM, on_sigterm)
-    print(f"order-tracking {VERSION} listening; FAIL_RATE={FAIL_RATE} READY_FAIL={READY_FAIL} NODE={NODE} ZONE={ZONE}", flush=True)
+    print(f"order-tracking {VERSION} listening; FAIL_RATE={FAIL_RATE} READY_FAIL={READY_FAIL} ZONE={ZONE}", flush=True)
     server.serve_forever()
     sys.exit(0)
 
