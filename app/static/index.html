@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retail Order API — EKS Reliability Console</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">RO</div>
+        <div>
+          <h1>Retail Order API</h1>
+          <p class="subtitle">EKS Shared Cluster Console &middot; Namespace <code>siva-p</code></p>
+        </div>
+      </div>
+
+      <div class="status-cluster">
+        <div class="meta-pill" title="Current APP_VERSION">
+          <span class="meta-label">Version</span>
+          <span id="hdr-version" class="badge badge-version">--</span>
+        </div>
+        <div class="meta-pill" title="Last responding Pod">
+          <span class="meta-label">Pod</span>
+          <span id="hdr-pod" class="mono-val">--</span>
+        </div>
+        <div class="meta-pill" title="Availability Zone">
+          <span class="meta-label">Zone</span>
+          <span id="hdr-zone" class="mono-val">--</span>
+        </div>
+        <div class="probe-group" aria-label="Kubernetes Probes">
+          <span id="probe-startup" class="probe-pill" title="/startup">Startup</span>
+          <span id="probe-ready" class="probe-pill" title="/ready">Ready</span>
+          <span id="probe-live" class="probe-pill" title="/healthz">Live</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dashboard-grid">
+      <!-- Order Tracking Lookup -->
+      <section class="card card-span-2" aria-labelledby="order-lookup-title">
+        <div class="card-header">
+          <div>
+            <h2 id="order-lookup-title">Order Tracking Lookup</h2>
+            <p class="card-desc">Query <code>GET /api/orders/&lt;id&gt;</code> to inspect order status, pod routing, and zone placement.</p>
+          </div>
+          <div class="chip-row" aria-label="Sample order IDs">
+            <button type="button" class="chip" data-order="1001">1001</button>
+            <button type="button" class="chip" data-order="ORD-2048">ORD-2048</button>
+            <button type="button" class="chip" data-order="ORD-7741">ORD-7741</button>
+            <button type="button" class="chip" data-order="ORD-9902">ORD-9902</button>
+          </div>
+        </div>
+
+        <form id="order-form" class="lookup-form">
+          <label for="order-input" class="sr-only">Order ID</label>
+          <input
+            id="order-input"
+            type="text"
+            value="1001"
+            placeholder="Enter Order ID (e.g. 1001 or ORD-2048)"
+            autocomplete="off"
+            required
+          >
+          <button type="submit" id="lookup-btn" class="btn btn-primary">Track Order</button>
+        </form>
+
+        <div id="order-result" class="order-result hidden">
+          <div class="order-headline">
+            <div>
+              <span class="field-label">Order ID</span>
+              <div id="res-order-id" class="order-id-val">--</div>
+            </div>
+            <div class="order-badges">
+              <span id="res-http" class="badge">--</span>
+              <span id="res-status" class="badge badge-status">--</span>
+            </div>
+          </div>
+
+          <ol id="order-stepper" class="stepper" aria-label="Order fulfillment stages">
+            <li data-stage="PLACED"><span>1</span>Placed</li>
+            <li data-stage="PACKED"><span>2</span>Packed</li>
+            <li data-stage="SHIPPED"><span>3</span>Shipped</li>
+            <li data-stage="OUT_FOR_DELIVERY"><span>4</span>Out for Delivery</li>
+            <li data-stage="DELIVERED"><span>5</span>Delivered</li>
+          </ol>
+
+          <div class="kv-grid">
+            <div class="kv-box">
+              <span class="field-label">Serving Pod</span>
+              <strong id="res-pod" class="mono-val">--</strong>
+            </div>
+            <div class="kv-box">
+              <span class="field-label">Availability Zone</span>
+              <strong id="res-zone" class="mono-val">--</strong>
+            </div>
+            <div class="kv-box">
+              <span class="field-label">App Version</span>
+              <strong id="res-version" class="mono-val">--</strong>
+            </div>
+            <div class="kv-box">
+              <span class="field-label">Latency</span>
+              <strong id="res-latency" class="mono-val">--</strong>
+            </div>
+          </div>
+        </div>
+
+        <div id="order-error" class="alert alert-error hidden" role="alert"></div>
+      </section>
+
+      <!-- Traffic Burst & Load Distribution -->
+      <section class="card" aria-labelledby="traffic-title">
+        <div class="card-header">
+          <div>
+            <h2 id="traffic-title">Traffic &amp; Load Spread</h2>
+            <p class="card-desc">Send concurrent bursts to test Service load balancing, AZ spread, and HPA CPU load.</p>
+          </div>
+        </div>
+
+        <div class="burst-controls">
+          <button type="button" class="btn btn-secondary burst-btn" data-count="10">Burst 10&times;</button>
+          <button type="button" class="btn btn-secondary burst-btn" data-count="25">Burst 25&times;</button>
+          <button type="button" class="btn btn-secondary burst-btn" data-count="50">Burst 50&times;</button>
+          <label class="toggle-wrap">
+            <input type="checkbox" id="auto-poll-toggle">
+            <span>Auto-poll (2s)</span>
+          </label>
+        </div>
+
+        <div class="kpi-strip">
+          <div class="kpi">
+            <span class="field-label">Requests</span>
+            <strong id="stat-total">0</strong>
+          </div>
+          <div class="kpi">
+            <span class="field-label">Success Rate</span>
+            <strong id="stat-success">--</strong>
+          </div>
+          <div class="kpi">
+            <span class="field-label">Avg Latency</span>
+            <strong id="stat-avg-ms">--</strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- Self-Healing Demo -->
+      <section class="card" aria-labelledby="chaos-title">
+        <div class="card-header">
+          <div>
+            <h2 id="chaos-title">Self-Healing Demo</h2>
+            <p class="card-desc">Trigger <code>POST /break</code> to test Kubernetes liveness recovery.</p>
+          </div>
+        </div>
+
+        <div class="chaos-box">
+          <div>
+            <h3>Liveness Failure (<code>POST /break</code>)</h3>
+            <p class="card-desc">Flips liveness probe <code>/healthz</code> to HTTP 500 on the responding pod so Kubernetes restarts it.</p>
+          </div>
+          <div class="chaos-actions">
+            <button type="button" id="break-btn" class="btn btn-danger">Trigger Liveness Failure</button>
+            <button type="button" id="break-confirm-btn" class="btn btn-danger hidden">Confirm /break</button>
+            <button type="button" id="break-cancel-btn" class="btn btn-ghost hidden">Cancel</button>
+          </div>
+          <div id="chaos-feedback" class="chaos-feedback hidden"></div>
+        </div>
+      </section>
+
+      <!-- Recent Request Trace Log -->
+      <section class="card card-span-2" aria-labelledby="trace-title">
+        <div class="card-header">
+          <div>
+            <h2 id="trace-title">Recent Request Trace Log</h2>
+            <p class="card-desc">Most recent 25 <code>/api/orders/&lt;id&gt;</code> calls from this browser session.</p>
+          </div>
+          <button type="button" id="clear-log-btn" class="btn btn-ghost">Clear Log</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Order ID</th>
+                <th>HTTP</th>
+                <th>Order Status</th>
+                <th>Version</th>
+                <th>Pod</th>
+                <th>Zone</th>
+                <th>Latency</th>
+              </tr>
+            </thead>
+            <tbody id="trace-tbody">
+              <tr>
+                <td colspan="8" class="empty-row">No requests recorded yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
