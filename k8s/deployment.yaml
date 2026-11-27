@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: checkride-demo
+  name: retail-order-api
   namespace: siva-p
 spec:
   replicas: 3
@@ -10,7 +10,7 @@ spec:
   progressDeadlineSeconds: 120
   selector:
     matchLabels:
-      app: checkride-demo
+      app: retail-order-api
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       labels:
-        app: checkride-demo
+        app: retail-order-api
     spec:
       terminationGracePeriodSeconds: 30
       topologySpreadConstraints:
@@ -28,13 +28,13 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: checkride-demo
+              app: retail-order-api
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app: checkride-demo
+              app: retail-order-api
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -56,11 +56,16 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           resources:
             requests:
               cpu: 100m
               memory: 128Mi
             limits:
+              cpu: 250m
               memory: 256Mi
           startupProbe:
             httpGet:
@@ -87,3 +92,5 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+
+
